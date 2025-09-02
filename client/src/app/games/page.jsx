@@ -3,18 +3,28 @@ import { useState, useEffect } from "react";
 
 const Games = () => {
   const [isVisible, setIsVisible] = useState(false);
+  const [isGameOpen, setIsGameOpen] = useState(false);
 
   useEffect(() => {
     setIsVisible(true);
   }, []);
 
+  const openGame = () => {
+    setIsGameOpen(true);
+  };
+
+  const closeGame = () => {
+    setIsGameOpen(false);
+  };
+
   const games = [
     {
       id: 1,
-      title: "Mindful Maze",
-      description: "Navigate through a serene maze while practicing mindfulness. Focus on your breath and find inner peace.",
+      title: "Flappy Bird",
+      description: "Soar through obstacles with calm and focus. Stay present, control your rhythm, and find peace in the flow of flight.",
       gradient: "from-emerald-500 to-teal-600",
-      icon: "🧭"
+      icon: "🐦",
+      onClick: openGame
     },
     {
       id: 2,
@@ -34,6 +44,32 @@ const Games = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      {/* Game Modal */}
+      {isGameOpen && (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col">
+          {/* Exit button */}
+          <div className="absolute top-4 right-4 z-50">
+            <button 
+              onClick={closeGame}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold shadow-lg transition-colors"
+              title="Exit Game"
+              aria-label="Exit Game"
+            >
+              ✕
+            </button>
+          </div>
+          
+          {/* Game iframe */}
+          <div className="flex-1 w-full h-full">
+            <iframe
+              src="/assets/flappy%20bird/index.html"
+              className="w-full h-full border-0"
+              title="Flappy Bird Game"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         {/* Animated background */}
@@ -117,7 +153,9 @@ const Games = () => {
                   {game.description}
                 </p>
                 
-                <button className={`group/btn relative w-full px-6 py-4 bg-gradient-to-r ${game.gradient} rounded-xl font-semibold text-white text-lg overflow-hidden transition-all duration-300 hover:shadow-2xl transform hover:-translate-y-1`}>
+                <button 
+                  onClick={game.onClick}
+                  className={`group/btn relative w-full px-6 py-4 bg-gradient-to-r ${game.gradient} rounded-xl font-semibold text-white text-lg overflow-hidden transition-all duration-300 hover:shadow-2xl transform hover:-translate-y-1`}>
                   <span className="relative z-10 flex items-center justify-center gap-2">
                     Play Now
                     <span className="group-hover/btn:translate-x-1 transition-transform duration-300">→</span>
