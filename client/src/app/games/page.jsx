@@ -33,7 +33,7 @@ const Games = () => {
       description:
         "Enjoy a simple, mindful twist on the classic game of Tic Tac Toe — designed to relax your mind and sharpen your focus through calm, strategic play.",
       gradient: "from-purple-500 to-pink-600",
-      icon: "❌⭕",
+      icon: "❌-⭕",
       iframe: "./assets/TIC TAC TOE/index.html",
     },
     {
