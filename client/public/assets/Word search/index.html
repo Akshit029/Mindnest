@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Search Quest</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+    
+    <div class="game-container">
+        <div class="header">
+            <h1 class="game-title">Word Search Quest</h1>
+            <div class="level-info">
+                <div class="level-badge">Level <span id="currentLevel">1</span></div>
+                <div class="score">Score: <span id="score">0</span></div>
+                <div class="timer">Time: <span id="timer">00:00</span></div>
+            </div>
+        </div>
+
+        <div class="game-board">
+            <div class="puzzle-container">
+                <div class="puzzle-grid" id="puzzleGrid"></div>
+                <div class="controls">
+                    <button class="btn" id="hintBtn">💡 Hint</button>
+                    <button class="btn secondary" id="newGameBtn">🔄 New Game</button>
+                    <button class="btn" id="pauseBtn">⏸️ Pause</button>
+                </div>
+            </div>
+
+            <div class="words-panel">
+                <h3 class="words-title">Find These Words</h3>
+                <ul class="words-list" id="wordsList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="level-complete" id="levelComplete">
+        <div class="completion-card">
+            <h2 class="completion-title">Level Complete! 🎉</h2>
+            <p>Congratulations! You found all the words!</p>
+            <p>Time: <span id="completionTime"></span></p>
+            <p>Score: <span id="completionScore"></span></p>
+            <div class="controls" style="margin-top: 30px;">
+                <button class="btn" id="nextLevelBtn">Next Level ➡️</button>
+                <button class="btn secondary" id="restartBtn">Restart Level 🔄</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

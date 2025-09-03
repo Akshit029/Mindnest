@@ -38,12 +38,12 @@ const Games = () => {
     },
     {
       id: 3,
-      title: "Breathing Exercise",
+      title: "Word Search",
       description:
-        "Master deep breathing techniques with interactive guidance to reduce anxiety and achieve mental clarity.",
+        "Discover deep breathing techniques hidden in the puzzle to help reduce anxiety and boost mental clarity.",
       gradient: "from-orange-500 to-red-500",
-      icon: "🫁",
-      iframe: null, // placeholder (could later be a custom breathing exercise modal)
+      icon: "🔍",
+      iframe: "./assets/Word search/index.html",
     },
   ];
 
