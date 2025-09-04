@@ -1,29 +1,114 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Send, MessageCircle, Sparkles, Bot } from 'lucide-react';
+
+// Your Express server URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
 const Chat = () => {
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState([{
+    content: "Hello! I'm your AI companion. How can I support you today?",
+    sender: 'ai',
+    timestamp: new Date()
+  }]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
 
-  const handleSend = () => {
-    if (message.trim()) {
-      setMessages([...messages, { text: message, sender: 'user' }]);
-      setMessage('');
+  // Initialize chat session on component mount
+  useEffect(() => {
+    const initializeChat = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/chat/session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setSessionId(data.sessionId);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing chat session:', error);
+      }
+    };
+
+    initializeChat();
+  }, []);
+
+  const handleSend = async () => {
+    const userMessage = message.trim();
+    if (!userMessage || !sessionId) return;
+
+    // Add user message to local state
+    const newUserMessage = { 
+      content: userMessage, 
+      sender: 'user',
+      timestamp: new Date() 
+    };
+    
+    setMessages(prev => [...prev, newUserMessage]);
+    setMessage('');
+    setIsLoading(true);
+
+    try {
+      // Call the Express server endpoint
+      const response = await fetch(`${API_URL}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userMessage,
+          history: messages.map(({ content, sender }) => ({ content, sender })),
+          sessionId
+        }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response from server');
+      }
+
+      const data = await response.json();
       
-      // Simulate AI response
-      setTimeout(() => {
-        setMessages(prev => [...prev, { 
-          text: "Thank you for reaching out. I'm here to listen and support you on your mental health journey. How are you feeling today?", 
-          sender: 'ai' 
-        }]);
-      }, 1000);
+      if (data.success) {
+        // Add AI response to chat
+        setMessages(prev => [
+          ...prev, 
+          { 
+            content: data.message, 
+            sender: 'ai',
+            timestamp: new Date() 
+          }
+        ]);
+      } else {
+        throw new Error(data.error || 'Failed to process your request');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setMessages(prev => [...prev, { 
+        content: "I'm sorry, I'm having trouble responding right now. Please try again later.", 
+        sender: 'ai',
+        timestamp: new Date() 
+      }]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleSend();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!isLoading && message.trim()) {
+        handleSend();
+      }
     }
   };
 
@@ -94,26 +179,30 @@ const Chat = () => {
 
             {/* Messages Area */}
             <div className="h-96 overflow-y-auto p-6 space-y-4 bg-gray-900/30">
-              {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                  <div className="bg-gradient-to-r from-purple-600/20 to-emerald-600/20 p-6 rounded-full mb-4">
-                    <Bot className="w-12 h-12 text-gray-400" />
+              {messages.map((msg, index) => (
+                <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+                    msg.sender === 'user' 
+                      ? 'bg-gradient-to-r from-purple-600 to-emerald-600 text-white' 
+                      : 'bg-gray-700/50 text-gray-200 border border-gray-600/50'
+                  }`}>
+                    <p className="text-sm leading-relaxed">{msg.content}</p>
+                    <p className="text-xs mt-1 opacity-70">
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
-                  <p className="text-gray-400 text-lg mb-2">Welcome! I'm here to help.</p>
-                  <p className="text-gray-500 text-sm">Start by typing a message below to begin our conversation.</p>
                 </div>
-              ) : (
-                messages.map((msg, index) => (
-                  <div key={index} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
-                      msg.sender === 'user' 
-                        ? 'bg-gradient-to-r from-purple-600 to-emerald-600 text-white' 
-                        : 'bg-gray-700/50 text-gray-200 border border-gray-600/50'
-                    }`}>
-                      <p className="text-sm leading-relaxed">{msg.text}</p>
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-700/50 text-gray-200 border border-gray-600/50 px-4 py-3 rounded-2xl">
+                    <div className="flex space-x-2">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></div>
                     </div>
                   </div>
-                ))
+                </div>
               )}
             </div>
 
@@ -125,29 +214,36 @@ const Chat = () => {
                     type="text"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyPress}
                     placeholder="Type your message here..."
                     className="w-full p-4 pr-12 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-300"
+                    disabled={isLoading}
                   />
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <Sparkles className="w-5 h-5 text-gray-500" />
+                    <Sparkles className={`w-5 h-5 ${isLoading ? 'text-gray-600' : 'text-gray-500'}`} />
                   </div>
                 </div>
                 
                 <button
                   onClick={handleSend}
-                  disabled={!message.trim()}
+                  disabled={!message.trim() || isLoading}
                   className="px-6 py-4 bg-gradient-to-r from-purple-600 to-emerald-600 text-white rounded-xl hover:from-purple-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
                 >
-                  <Send className="w-4 h-4" />
-                  <span className="hidden sm:inline">Send</span>
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span className="hidden sm:inline">Send</span>
+                    </>
+                  )}
                 </button>
               </div>
               
               <div className="flex justify-center mt-4">
                 <div className="text-gray-500 text-sm flex items-center gap-2">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                  Your AI companion is online and ready to help
+                  <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-yellow-500 animate-pulse' : 'bg-emerald-500'}`}></div>
+                  {isLoading ? 'Your AI companion is thinking...' : 'Your AI companion is online and ready to help'}
                 </div>
               </div>
             </div>
