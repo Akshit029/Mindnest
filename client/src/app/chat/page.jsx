@@ -145,10 +145,10 @@ const Chat = () => {
               </div>
               
               <div className="flex justify-center mt-4">
-                <p className="text-gray-500 text-sm flex items-center gap-2">
+                <div className="text-gray-500 text-sm flex items-center gap-2">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                   Your AI companion is online and ready to help
-                </p>
+                </div>
               </div>
             </div>
           </div>
