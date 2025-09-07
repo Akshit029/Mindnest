@@ -17,6 +17,9 @@ connectDB();
 
 const app = express();
 
+// Trust proxy for correct secure cookies behind reverse proxies (e.g., Render)
+app.set('trust proxy', 1);
+
 // Initialize Google Generative AI (optional)
 let genAI = null;
 if (process.env.GEMINI_API_KEY) {
@@ -38,7 +41,8 @@ app.use(cookieParser());
 // Enable CORS
 const allowedOrigins = [
   'https://mindnest-zeta.vercel.app',
-  'http://localhost:3000'
+  'http://localhost:3000',
+  'https://mindnest-meho.onrender.com'
 ];
 
 app.use(cors({

@@ -1,10 +1,12 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "../../context/AuthContext";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
 const Login = () => {
   const router = useRouter();
+  const { refresh } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +31,7 @@ const Login = () => {
       if (!res.ok || !data.success) {
         throw new Error(data?.error || "Login failed");
       }
+      await refresh();
       router.push("/");
     } catch (err) {
       setError(err.message);

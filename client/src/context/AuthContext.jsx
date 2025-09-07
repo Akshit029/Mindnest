@@ -4,8 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useMemo, useCall
 const AuthContext = createContext({ user: null, loading: true, refresh: async () => {}, logout: async () => {} });
 
 const getApiBase = () => {
-  const raw = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URI;
-  if (!raw) return '/api';
+  const raw = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URI || 'http://localhost:5001';
   const trimmed = raw.replace(/\/+$/, '');
   return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
 };
