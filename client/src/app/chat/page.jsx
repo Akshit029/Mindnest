@@ -2,8 +2,10 @@
 import { useState, useEffect } from 'react';
 import { Send, MessageCircle, Sparkles, Bot } from 'lucide-react';
 
-// Your Express server URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+// Your Express server URL (normalized to include a single /api suffix)
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+const TRIMMED_BASE = RAW_API_URL.replace(/\/+$/, "");
+const API_URL = TRIMMED_BASE.endsWith('/api') ? TRIMMED_BASE : `${TRIMMED_BASE}/api`;
 
 const Chat = () => {
   const [message, setMessage] = useState('');
@@ -19,7 +21,7 @@ const Chat = () => {
   useEffect(() => {
     const initializeChat = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/chat/session`, {
+        const response = await fetch(`${API_URL}/chat/session`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -59,7 +61,7 @@ const Chat = () => {
 
     try {
       // Call the Express server endpoint
-      const response = await fetch(`${API_URL}/api/chat`, {
+      const response = await fetch(`${API_URL}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

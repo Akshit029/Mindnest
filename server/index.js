@@ -7,6 +7,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import connectDB from './config/db.js';
 import ChatSession from './models/chatModel.js';
 import { v4 as uuidv4 } from 'uuid';
+import authRoutes from './routes/authRoutes.js';
 
 // Load env vars
 dotenv.config();
@@ -16,8 +17,17 @@ connectDB();
 
 const app = express();
 
-// Initialize Google Generative AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize Google Generative AI (optional)
+let genAI = null;
+if (process.env.GEMINI_API_KEY) {
+  try {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  } catch (err) {
+    console.warn('Warning: Failed to initialize Google Generative AI. Falling back to canned responses.');
+  }
+} else {
+  console.warn('Warning: GEMINI_API_KEY not set. Chat responses will use a fallback message.');
+}
 
 // Body parser
 app.use(express.json());
@@ -53,6 +63,9 @@ if (process.env.NODE_ENV === 'development') {
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to the Mindnest API' });
 });
+
+// Auth routes
+app.use('/api/auth', authRoutes);
 
 // Create or get chat session
 app.post('/api/chat/session', async (req, res) => {
@@ -120,9 +133,6 @@ app.post('/api/chat', async (req, res) => {
       }]
     };
 
-    // Get the Gemini model
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
     // Prepare chat history for the AI
     const aiHistory = [
       systemPrompt,
@@ -132,21 +142,32 @@ app.post('/api/chat', async (req, res) => {
       }))
     ];
 
-    // Prepare chat with history
-    const chat = model.startChat({
-      history: aiHistory,
-      generationConfig: {
-        maxOutputTokens: 1000,
-        temperature: 0.9,
-        topP: 0.1,
-        topK: 16,
-      },
-    });
+    // Generate AI response or fallback
+    let aiResponse = null;
+    if (genAI) {
+      try {
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const chat = model.startChat({
+          history: aiHistory,
+          generationConfig: {
+            maxOutputTokens: 1000,
+            temperature: 0.9,
+            topP: 0.1,
+            topK: 16,
+          },
+        });
 
-    // Generate response
-    const result = await chat.sendMessage(message);
-    const response = await result.response;
-    const aiResponse = response.text();
+        const result = await chat.sendMessage(message);
+        const response = await result.response;
+        aiResponse = response.text();
+      } catch (aiErr) {
+        console.warn('AI generation failed, using fallback message:', aiErr?.message || aiErr);
+      }
+    }
+
+    if (!aiResponse) {
+      aiResponse = "I'm here for you. While my smart replies are temporarily unavailable, I can still listen and offer general support. Tell me what's on your mind, and we can work through it together.";
+    }
 
     // Add AI response to session
     session.messages.push({

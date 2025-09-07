@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock, User, Check, X } from "lucide-react";
 
 const Signup = () => {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -11,6 +13,8 @@ const Signup = () => {
     password: "",
     confirmPassword: ""
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -23,6 +27,37 @@ const Signup = () => {
   const passwordHasMinLength = formData.password.length >= 8;
   const passwordHasUppercase = /[A-Z]/.test(formData.password);
   const passwordHasNumber = /\d/.test(formData.password);
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (!passwordsMatch || !passwordHasMinLength || !formData.name || !formData.email) return;
+    setSubmitting(true);
+    try {
+      const rawBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+      const trimmedBase = rawBase.replace(/\/+$/, "");
+      const apiBase = trimmedBase.endsWith("/api") ? trimmedBase : `${trimmedBase}/api`;
+      const res = await fetch(`${apiBase}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data?.error || "Signup failed");
+      }
+      router.push("/");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
@@ -189,16 +224,15 @@ const Signup = () => {
 
             {/* Signup Button */}
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                // Handle signup logic here
-                console.log('Signup attempted with:', formData);
-              }}
+              onClick={handleSignup}
               className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-emerald-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-slate-900 transform hover:scale-[1.02] transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!passwordsMatch || !passwordHasMinLength || !formData.name || !formData.email}
+              disabled={submitting || !passwordsMatch || !passwordHasMinLength || !formData.name || !formData.email}
             >
-              Create Account
+              {submitting ? "Creating..." : "Create Account"}
             </button>
+            {error && (
+              <p className="text-red-400 text-sm text-center">{error}</p>
+            )}
           </div>
 
           {/* Divider */}

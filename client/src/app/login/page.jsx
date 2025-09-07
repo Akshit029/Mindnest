@@ -1,11 +1,41 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
 const Login = () => {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      const rawBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+      const trimmedBase = rawBase.replace(/\/+$/, "");
+      const apiBase = trimmedBase.endsWith("/api") ? trimmedBase : `${trimmedBase}/api`;
+      const res = await fetch(`${apiBase}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data?.error || "Login failed");
+      }
+      router.push("/");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
@@ -92,15 +122,14 @@ const Login = () => {
 
             {/* Login Button */}
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                // Handle login logic here
-                console.log('Login attempted with:', { email, password });
-              }}
+              onClick={handleLogin}
               className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-emerald-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-slate-900 transform hover:scale-[1.02] transition-all duration-300 shadow-lg"
             >
-              Sign In
+              {submitting ? "Signing in..." : "Sign In"}
             </button>
+            {error && (
+              <p className="text-red-400 text-sm text-center">{error}</p>
+            )}
           </div>
 
           {/* Divider */}
