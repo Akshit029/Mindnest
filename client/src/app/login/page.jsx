@@ -16,7 +16,7 @@ const Login = () => {
     setError("");
     setSubmitting(true);
     try {
-      const rawBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+      const rawBase = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URI || "http://localhost:5001";
       const trimmedBase = rawBase.replace(/\/+$/, "");
       const apiBase = trimmedBase.endsWith("/api") ? trimmedBase : `${trimmedBase}/api`;
       const res = await fetch(`${apiBase}/auth/login`, {
