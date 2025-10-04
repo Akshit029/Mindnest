@@ -10,6 +10,8 @@ import { v4 as uuidv4 } from 'uuid';
 import authRoutes from './routes/authRoutes.js';
 import { exec } from 'child_process';
 import multer from 'multer';
+import { GridFsStorage } from 'multer-gridfs-storage';
+import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -65,17 +67,23 @@ app.use(cors({
   credentials: true
 }));
 
-// Multer setup for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/')
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname))
+// Create storage engine for GridFS
+const storage = new GridFsStorage({
+  url: process.env.MONGO_URI,
+  options: { useNewUrlParser: true, useUnifiedTopology: true },
+  file: (req, file) => {
+    return new Promise((resolve, reject) => {
+      const filename = `image-${Date.now()}${path.extname(file.originalname)}`;
+      const fileInfo = {
+        filename: filename,
+        bucketName: 'uploads' // Collection name
+      };
+      resolve(fileInfo);
+    });
   }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
 // Dev logging middleware
 if (process.env.NODE_ENV === 'development') {
@@ -89,6 +97,31 @@ app.get('/', (req, res) => {
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+
+// Image retrieval endpoint
+let gfs;
+const conn = mongoose.connection;
+conn.once('open', () => {
+  gfs = new mongoose.mongo.GridFSBucket(conn.db, {
+    bucketName: 'uploads'
+  });
+});
+
+app.get('/api/image/:filename', (req, res) => {
+  gfs.find({ filename: req.params.filename }).toArray((err, files) => {
+    if (!files || files.length === 0) {
+      return res.status(404).json({ err: 'No file exists' });
+    }
+
+    // Check if image
+    if (files[0].contentType === 'image/jpeg' || files[0].contentType === 'image/png') {
+      const readstream = gfs.openDownloadStream(files[0]._id);
+      readstream.pipe(res);
+    } else {
+      res.status(404).json({ err: 'Not an image' });
+    }
+  });
+});
 
 // Create or get chat session
 app.post('/api/chat/session', async (req, res) => {
@@ -250,12 +283,13 @@ app.post('/api/detect-emotion', upload.single('image'), (req, res) => {
     });
   }
 
-  const imagePath = req.file.path;
+  // Construct the URL to the image
+  const imageUrl = `${req.protocol}://${req.get('host')}/api/image/${req.file.filename}`;
 
-  // Run the Python script
+  // Run the Python script with the image URL
   const pythonExecutable = path.join(__dirname, 'venv', 'bin', 'python');
   const scriptPath = path.join(__dirname, 'Python', 'emotionDetection.py');
-  exec(`"${pythonExecutable}" "${scriptPath}" "${imagePath}"`, (error, stdout, stderr) => {
+  exec(`"${pythonExecutable}" "${scriptPath}" "${imageUrl}"`, (error, stdout, stderr) => {
     if (error) {
       console.error(`exec error: ${error}`);
       return res.status(500).json({

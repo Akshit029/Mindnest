@@ -1,5 +1,7 @@
 import sys
 import cv2
+import numpy as np
+import requests
 from deepface import DeepFace
 import warnings
 import os
@@ -9,15 +11,28 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.filterwarnings('ignore', category=UserWarning, module='tensorflow')
 warnings.filterwarnings('ignore', category=FutureWarning, module='tensorflow')
 
-# Function to detect emotion from an image file path
-def detect_emotion_from_file(image_path):
+# Function to detect emotion from an image URL
+def detect_emotion_from_url(image_url):
     try:
-        # DeepFace.analyze will handle reading the image
-        # We specify 'emotion' as the only action to perform
+        # Download the image from the URL
+        response = requests.get(image_url)
+        response.raise_for_status()  # Raise an exception for bad status codes
+
+        # Convert the image content to a numpy array
+        image_array = np.frombuffer(response.content, np.uint8)
+        
+        # Decode the image array into an image that OpenCV can use
+        img = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+
+        if img is None:
+            # print("Failed to decode image from URL.", file=sys.stderr)
+            return None, 0.0
+
+        # DeepFace.analyze can take a numpy array (the image) directly
         analysis = DeepFace.analyze(
-            img_path=image_path, 
+            img_path=img, 
             actions=['emotion'], 
-            enforce_detection=True # Fails if no face is detected
+            enforce_detection=True  # Fails if no face is detected
         )
 
         # The result is a list of dictionaries, one for each face.
@@ -32,20 +47,20 @@ def detect_emotion_from_file(image_path):
             return None, 0.0
 
     except Exception as e:
-        # If DeepFace fails (e.g., no face found), return None
+        # If DeepFace fails (e.g., no face found, or URL is invalid)
         # print(f"Error in emotion detection: {e}", file=sys.stderr)
         return None, 0.0
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        image_path = sys.argv[1]
-        emotion, confidence = detect_emotion_from_file(image_path)
+        image_url = sys.argv[1]
+        emotion, confidence = detect_emotion_from_url(image_url)
         if emotion:
             # Output format: "emotion,confidence"
             print(f"{emotion},{confidence}")
         else:
-            # If no emotion is detected, print nothing or an error message
-            # Printing nothing ensures the Node.js script gets an empty stdout
+            # If no emotion is detected, print nothing.
+            # This ensures the Node.js script gets an empty stdout on failure.
             pass
 
 
