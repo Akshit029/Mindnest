@@ -1,165 +1,231 @@
 "use client";
-import { useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
+import Webcam from "react-webcam";
+import { Camera, CameraOff, Sparkles } from 'lucide-react';
+
+
+const moods = [
+  { id: 'happy', label: 'Happy', emoji: '😊', color: 'from-emerald-400 to-teal-500' },
+  { id: 'neutral', label: 'Neutral', emoji: '😐', color: 'from-amber-400 to-orange-500' },
+  { id: 'sad', label: 'Sad', emoji: '😢', color: 'from-rose-400 to-pink-500' },
+  { id: 'surprise', label: 'Surprised', emoji: '😲', color: 'from-cyan-400 to-blue-500' },
+  { id: 'fear', label: 'Fear', emoji: '😨', color: 'from-indigo-400 to-purple-500' },
+  { id: 'disgust', label: 'Disgust', emoji: '🤢', color: 'from-lime-400 to-green-500' },
+  { id: 'anger', label: 'Angry', emoji: '😠', color: 'from-red-400 to-rose-500' }
+];
 
 const MoodTracker = () => {
+  const webcamRef = useRef(null);
   const [selectedMood, setSelectedMood] = useState(null);
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [confidence, setConfidence] = useState(null);
+  const [cameraActive, setCameraActive] = useState(false);
+    const [cameraError, setCameraError] = useState(null);
+  const [suggestion, setSuggestion] = useState(null);
+  const [showSuggestion, setShowSuggestion] = useState(false);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
 
-  const moods = [
-    { 
-      id: 'happy', 
-      label: 'Happy', 
-      emoji: '😊', 
-      color: 'from-emerald-400 to-teal-500',
-      hoverColor: 'from-emerald-300 to-teal-400',
-      shadow: 'shadow-emerald-500/25'
-    },
-    { 
-      id: 'neutral', 
-      label: 'Neutral', 
-      emoji: '😐', 
-      color: 'from-amber-400 to-orange-500',
-      hoverColor: 'from-amber-300 to-orange-400',
-      shadow: 'shadow-amber-500/25'
-    },
-    { 
-      id: 'sad', 
-      label: 'Sad', 
-      emoji: '😢', 
-      color: 'from-rose-400 to-pink-500',
-      hoverColor: 'from-rose-300 to-pink-400',
-      shadow: 'shadow-rose-500/25'
+  const captureAndPredict = async () => {
+    if (!webcamRef.current) return;
+
+    const imageSrc = webcamRef.current.getScreenshot();
+
+    if (!imageSrc) return;
+
+    try {
+      setLoading(true);
+
+      const blob = await (await fetch(imageSrc)).blob();
+      const formData = new FormData();
+      formData.append("image", blob, "frame.jpg");
+
+      const res = await fetch("http://localhost:5001/api/detect-emotion", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.emotion) {
+        const mood = moods.find((m) => m.id === data.emotion);
+                if (mood) {
+          setSelectedMood(mood);
+          setConfidence(data.confidence);
+          fetchSuggestion(mood.id);
+          setCameraActive(false); // Turn off camera after detection
+        }
+      }
+    } catch (err) {
+      console.error("Prediction error:", err);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const handleMoodSelect = (mood) => {
-    setSelectedMood(mood);
-    setIsAnimating(true);
-    setTimeout(() => setIsAnimating(false), 600);
+  useEffect(() => {
+    let interval;
+
+    if (cameraActive) {
+      interval = setInterval(() => {
+        captureAndPredict();
+      }, 3000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [cameraActive]);
+
+    const fetchSuggestion = async (moodId, previousSuggestion = null) => {
+    try {
+      setSuggestionLoading(true);
+      const res = await fetch("http://localhost:5001/api/mood-suggestion", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mood: moodId, previousSuggestion }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setSuggestion(data.suggestion);
+        setShowSuggestion(true);
+      }
+    } catch (err) {
+      console.error("Suggestion fetch failed:", err);
+    } finally {
+      setSuggestionLoading(false);
+    }
+  };
+
+  const handleUserMediaError = (err) => {
+    console.error("Webcam error:", err);
+    setCameraError("Camera access was denied or not available.");
+  };
+
+  const handleStartCamera = () => {
+    setCameraError(null);
+    setCameraActive(true);
+  };
+
+  const handleCloseCamera = () => {
+    setCameraActive(false);
+    setSelectedMood(null);
+    setConfidence(null);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-40">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 25% 25%, rgba(156, 146, 172, 0.05) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(156, 146, 172, 0.05) 0%, transparent 50%)`
-        }}></div>
-      </div>
-      
-      <div className="relative z-10">
-        {/* Hero Section */}
-        <section className="px-6 pt-20 pb-16 md:px-12 lg:px-16">
-          <div className="max-w-6xl mx-auto text-center">
-            <div className="mb-8">
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent mb-6 leading-tight">
-                Mood Tracker
-              </h1>
-              <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-pink-500 mx-auto rounded-full mb-8"></div>
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
+      <div className="relative w-full max-w-4xl text-center bg-gradient-to-br from-purple-900/50 via-gray-900 to-teal-900/50 py-12 sm:py-20 px-6 md:px-12 rounded-3xl border border-gray-700/50 shadow-2xl">
+        
+        <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 bg-purple-800/30 backdrop-blur-sm rounded-full border border-purple-700/30">
+          <Sparkles className="w-4 h-4 text-purple-400" />
+          <span className="text-sm text-purple-300">Real-Time Emotion Analysis</span>
+        </div>
+
+        <h1 className="text-4xl sm:text-5xl font-extrabold mb-4 bg-gradient-to-r from-purple-400 via-teal-400 to-purple-400 bg-clip-text text-transparent leading-tight">
+          Mood Detector
+        </h1>
+        <p className="text-lg text-gray-400 mb-8 max-w-2xl mx-auto">Let our AI analyze your expression to detect your current mood.</p>
+
+        <div className="h-96 flex flex-col items-center justify-center">
+          {cameraError && (
+            <div className="text-red-400 mb-4 p-4 bg-red-900/50 rounded-lg">
+              <p>{cameraError}</p>
+              <p className="text-sm text-red-300/80">Please allow camera access in your browser settings.</p>
             </div>
-            <p className="text-xl sm:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-              Understanding your emotions is the first step toward better mental wellness. 
-              <span className="text-transparent bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text font-semibold"> Track, reflect, and grow.</span>
+          )}
+
+          {cameraActive ? (
+            <div className="flex flex-col items-center justify-center">
+              <Webcam
+                ref={webcamRef}
+                screenshotFormat="image/jpeg"
+                onUserMediaError={handleUserMediaError}
+                className="rounded-lg border-2 border-gray-700 mb-4 shadow-lg transform scale-x-[-1]"
+                videoConstraints={{
+                  width: 480,
+                  height: 360,
+                  facingMode: "user",
+                }}
+              />
+              {loading && <p className="mb-2 text-gray-400 animate-pulse">Analyzing...</p>}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-gray-500">
+              <Camera size={64} className="mb-4"/>
+              <p>Camera is off</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+          {!cameraActive ? (
+            <button
+              onClick={handleStartCamera}
+              className="group inline-flex items-center gap-3 px-8 py-3 bg-gradient-to-r from-purple-600 to-teal-600 text-white rounded-xl hover:from-purple-500 hover:to-teal-500 transition-all duration-300 transform hover:scale-105 shadow-xl font-semibold"
+            >
+              <Camera className="w-5 h-5" />
+              Start Camera
+            </button>
+          ) : (
+            <button
+              onClick={handleCloseCamera}
+              className="group inline-flex items-center gap-3 px-8 py-3 bg-gray-800/50 backdrop-blur-sm text-gray-300 rounded-xl hover:bg-red-700/50 hover:text-red-300 transition-all duration-300 border border-gray-700 hover:border-red-600/50"
+            >
+              <CameraOff className="w-5 h-5" />
+              Close Camera
+            </button>
+          )}
+        </div>
+
+        {selectedMood && (
+          <div className={`p-6 rounded-xl text-center bg-gradient-to-br ${selectedMood.color} shadow-lg max-w-sm mx-auto`}>
+            <p className="text-3xl font-semibold mb-2">
+              {selectedMood.emoji} {selectedMood.label}
+            </p>
+            {confidence !== null && (
+              <p className="text-sm text-white/80">
+                Confidence: {(confidence * 100).toFixed(2)}%
+              </p>
+            )}
+          </div>
+        )}
+
+        {showSuggestion && suggestion && (
+          <div className="mt-6 bg-gray-800/50 p-6 rounded-lg shadow-lg max-w-md mx-auto text-left">
+            <h3 className="text-xl font-semibold text-white mb-2">Here's something you can try:</h3>
+            <p className="text-lg text-teal-300 mb-2">{suggestion.activity}</p>
+            {suggestion.link && (
+              <a
+                href={suggestion.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg shadow"
+              >
+                Try It Now
+              </a>
+            )}
+            <div className="mt-4 flex gap-3">
+              <button
+                className="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded"
+                onClick={() => alert("Awesome! Hope it helps 😊")}
+              >
+                I'm Interested
+              </button>
+              <button
+                className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded"
+                onClick={() => fetchSuggestion(selectedMood.id, suggestion.activity)} // 👈 Retry
+              >
+                Not Interested
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-4">
+              ⚠️ These suggestions are not medical advice. If you're feeling distressed, please talk to a mental health professional. You're not alone 💙
             </p>
           </div>
-        </section>
-
-        {/* Mood Tracking Section */}
-        <section className="px-6 pb-20 md:px-12 lg:px-16">
-          <div className="max-w-4xl mx-auto">
-            <div className="backdrop-blur-xl bg-white/5 border border-white/10 p-8 md:p-12 rounded-3xl shadow-2xl">
-              <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-white">
-                How are you feeling today?
-              </h2>
-              
-              {/* Mood Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
-                {moods.map((mood) => (
-                  <button
-                    key={mood.id}
-                    onClick={() => handleMoodSelect(mood)}
-                    className={`group relative overflow-hidden p-6 md:p-8 rounded-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2 ${
-                      selectedMood?.id === mood.id 
-                        ? `bg-gradient-to-r ${mood.color} shadow-2xl ${mood.shadow}` 
-                        : 'bg-gray-800/50 hover:bg-gray-700/60 border border-gray-600/30 hover:border-gray-500/50'
-                    }`}
-                  >
-                    {/* Animated background for selected mood */}
-                    {selectedMood?.id === mood.id && (
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    )}
-                    
-                    <div className="relative z-10 text-center">
-                      <div className={`text-6xl md:text-7xl mb-4 transform transition-transform duration-300 ${
-                        selectedMood?.id === mood.id && isAnimating ? 'scale-125' : 'group-hover:scale-110'
-                      }`}>
-                        {mood.emoji}
-                      </div>
-                      <div className={`text-xl md:text-2xl font-bold transition-colors duration-300 ${
-                        selectedMood?.id === mood.id ? 'text-white' : 'text-gray-300 group-hover:text-white'
-                      }`}>
-                        {mood.label}
-                      </div>
-                    </div>
-                    
-                    {/* Ripple effect */}
-                    <div className="absolute inset-0 rounded-2xl opacity-0 group-active:opacity-30 bg-white transition-opacity duration-150"></div>
-                  </button>
-                ))}
-              </div>
-
-              {/* Selected Mood Feedback */}
-              {selectedMood && (
-                <div className={`text-center p-6 rounded-2xl bg-gradient-to-r ${selectedMood.color} mb-8 transform transition-all duration-500 ${
-                  isAnimating ? 'scale-105' : 'scale-100'
-                }`}>
-                  <div className="text-white">
-                    <p className="text-xl font-semibold mb-2">
-                      Mood logged: {selectedMood.label} {selectedMood.emoji}
-                    </p>
-                    <p className="text-white/90">
-                      Your emotional journey matters. Keep tracking to discover patterns.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Info Section */}
-              <div className="text-center space-y-4">
-                <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-full">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                  <p className="text-gray-300 font-medium">
-                    Your mood data helps identify emotional patterns and triggers
-                  </p>
-                </div>
-                
-                <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed">
-                  Regular mood tracking provides valuable insights into your mental health journey, 
-                  helping you understand what influences your emotions and well-being.
-                </p>
-              </div>
-
-              {/* Progress Indicator */}
-              <div className="mt-10 flex justify-center">
-                <div className="flex gap-2">
-                  {[...Array(7)].map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-2 h-2 rounded-full transition-colors duration-300 ${
-                        i < 3 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-600'
-                      }`}
-                    ></div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        )}
       </div>
-
-      {/* Floating Elements */}
-      <div className="fixed top-20 left-10 w-20 h-20 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full blur-xl animate-pulse"></div>
-      <div className="fixed bottom-20 right-10 w-32 h-32 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-full blur-xl animate-pulse delay-1000"></div>
     </div>
   );
 };

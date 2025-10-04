@@ -8,6 +8,13 @@ import connectDB from './config/db.js';
 import ChatSession from './models/chatModel.js';
 import { v4 as uuidv4 } from 'uuid';
 import authRoutes from './routes/authRoutes.js';
+import { exec } from 'child_process';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load env vars
 dotenv.config();
@@ -57,6 +64,18 @@ app.use(cors({
   },
   credentials: true
 }));
+
+// Multer setup for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/')
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname))
+  }
+});
+
+const upload = multer({ storage: storage });
 
 // Dev logging middleware
 if (process.env.NODE_ENV === 'development') {
@@ -218,6 +237,142 @@ app.get('/api/chat/history/:sessionId', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch chat history'
+    });
+  }
+});
+
+// Emotion detection endpoint
+app.post('/api/detect-emotion', upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      error: 'No image uploaded'
+    });
+  }
+
+  const imagePath = req.file.path;
+
+  // Run the Python script
+  const pythonExecutable = path.join(__dirname, 'venv', 'bin', 'python');
+  const scriptPath = path.join(__dirname, 'Python', 'emotionDetection.py');
+  exec(`"${pythonExecutable}" "${scriptPath}" "${imagePath}"`, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`exec error: ${error}`);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to detect emotion'
+      });
+    }
+
+    if (stderr) {
+      console.error(`stderr: ${stderr}`);
+      return res.status(500).json({
+        success: false,
+        error: 'Error in emotion detection'
+      });
+    }
+
+    // Parse the result from Python script
+    const output = stdout.trim(); // The Python script output
+    if (!output) {
+        console.error('Python script returned empty output.');
+        return res.status(500).json({
+            success: false,
+            error: 'Emotion detection script returned no output.'
+        });
+    }
+    const [emotion, confidence] = output.split(',');
+
+    if (!emotion || confidence === undefined) {
+        console.error(`Failed to parse python script output: ${output}`);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to parse emotion detection result.'
+        });
+    }
+
+
+    // Return the detected emotion and confidence level
+    res.json({
+      success: true,
+      emotion,
+      confidence: parseFloat(confidence),
+    });
+  });
+});
+
+app.post('/api/mood-suggestion', async (req, res) => {
+  const { mood, previousSuggestion } = req.body;
+
+  if (!genAI) {
+    return res.status(503).json({
+      success: false,
+      error: 'Gemini AI is not initialized.'
+    });
+  }
+
+  if (!mood) {
+    return res.status(400).json({
+      success: false,
+      error: 'Mood is required.'
+    });
+  }
+
+  let prompt = `
+  You are a kind, supportive assistant in a mental wellness app. The user is currently feeling "${mood}".
+  
+  Your goal is to suggest one gentle, uplifting activity that could help them feel slightly better right now. Keep it simple, safe, and emotionally supportive.
+  
+  Use this format only:
+  {
+    "activity": "<brief but meaningful suggestion>",
+    "link": "<a helpful and safe URL, or null if not applicable>"
+  }
+  `;
+  
+  if (previousSuggestion) {
+    prompt += `
+  
+  The user did not find this suggestion helpful: "${previousSuggestion}".
+  Please offer a completely different idea.
+  `;
+  }
+  
+  prompt += `
+  
+  ⚠️ Important:
+  - Do NOT include any explanation, greetings, or extra text.
+  - Output ONLY a single valid JSON object.
+  - Do NOT wrap the JSON in backticks or code blocks.
+  - Suggestions must never replace professional help.
+  `;
+  
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
+    const jsonMatch = text.match(/\{[\s\S]*?\}/);
+    const suggestion = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+
+    if (!suggestion) {
+      return res.status(500).json({
+        success: false,
+        error: 'Could not parse suggestion from Gemini.'
+      });
+    }
+
+    res.json({
+      success: true,
+      suggestion
+    });
+
+  } catch (err) {
+    console.error('Gemini mood suggestion error:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate suggestion.'
     });
   }
 });

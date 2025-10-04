@@ -1,0 +1,5 @@
+python3 -m venv venv
+source venv/bin/activate
+pip install fer opencv-python Pillow numpy deepface moviepy tf-keras
+python python/emotionDetection.py <base64_image_string>
+deactivate

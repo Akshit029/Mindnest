@@ -22,7 +22,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
+            <body
+        className={`${geistSans.variable} ${geistMono.variable} font-sans bg-gray-900 text-white`}
+      >
         {/* Wrap the WHOLE website in PreLoaderWrapper */}
         <PreLoaderWrapper>
             <AuthProvider>

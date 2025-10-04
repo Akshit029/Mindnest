@@ -3,7 +3,7 @@ import { Brain, Heart, Target, ArrowRight, Star, Sparkles } from 'lucide-react';
 
 const Home = () => {
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+        <div className="min-h-screen overflow-hidden">
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-purple-900 via-gray-900 to-teal-900 py-20 px-6 md:px-12 overflow-hidden">
         {/* Background decoration */}
@@ -22,7 +22,7 @@ const Home = () => {
           </h1>
           
           <p className="text-xl sm:text-2xl mb-10 text-gray-300 max-w-3xl mx-auto leading-relaxed">
-            Your intelligent mental health companion, empowering you to unlock better well-being through personalized support and insights.
+            Your intelligent mental  health companion, empowering you to unlock better well-being through personalized support and insights.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
