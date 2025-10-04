@@ -14,6 +14,13 @@ const moods = [
   { id: 'anger', label: 'Angry', emoji: '😠', color: 'from-red-400 to-rose-500' }
 ];
 
+const getApiBase = () => {
+  const raw = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+  const trimmed = raw.replace(/\/+$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+const API_BASE_URL = getApiBase();
+
 const MoodTracker = () => {
   const webcamRef = useRef(null);
   const [selectedMood, setSelectedMood] = useState(null);
@@ -39,7 +46,7 @@ const MoodTracker = () => {
       const formData = new FormData();
       formData.append("image", blob, "frame.jpg");
 
-      const res = await fetch("http://localhost:5001/api/detect-emotion", {
+            const res = await fetch(`${API_BASE_URL}/detect-emotion`, {
         method: "POST",
         body: formData,
       });
@@ -79,7 +86,7 @@ const MoodTracker = () => {
     const fetchSuggestion = async (moodId, previousSuggestion = null) => {
     try {
       setSuggestionLoading(true);
-      const res = await fetch("http://localhost:5001/api/mood-suggestion", {
+            const res = await fetch(`${API_BASE_URL}/mood-suggestion`, {
         method: "POST",
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mood: moodId, previousSuggestion }),
