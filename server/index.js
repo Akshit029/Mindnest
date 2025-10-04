@@ -287,7 +287,8 @@ app.post('/api/detect-emotion', upload.single('image'), (req, res) => {
   const imageUrl = `${req.protocol}://${req.get('host')}/api/image/${req.file.filename}`;
 
   // Run the Python script with the image URL
-  const pythonExecutable = path.join(__dirname, 'venv', 'bin', 'python');
+  // Using 'python3' directly as it's more reliable in most environments
+  const pythonExecutable = 'python3';
   const scriptPath = path.join(__dirname, 'Python', 'emotionDetection.py');
   exec(`"${pythonExecutable}" "${scriptPath}" "${imageUrl}"`, (error, stdout, stderr) => {
     if (error) {
